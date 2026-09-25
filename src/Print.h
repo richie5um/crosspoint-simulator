@@ -1,7 +1,10 @@
 #pragma once
+#include <cstdarg>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <vector>
 
 class Print {
 public:
@@ -24,4 +27,28 @@ public:
     return n;
   }
   size_t println(int n) { return println("1"); }
+
+  // Mirrors Arduino core's Print::printf: format into a stack buffer for the
+  // common case, heap-allocate only if the formatted output overflows it.
+  size_t printf(const char *format, ...) {
+    char stackBuf[256];
+    va_list args;
+    va_start(args, format);
+    va_list argsCopy;
+    va_copy(argsCopy, args);
+    const int needed = vsnprintf(stackBuf, sizeof(stackBuf), format, args);
+    va_end(args);
+    if (needed < 0) {
+      va_end(argsCopy);
+      return 0;
+    }
+    if (static_cast<size_t>(needed) < sizeof(stackBuf)) {
+      va_end(argsCopy);
+      return write(reinterpret_cast<const uint8_t *>(stackBuf), static_cast<size_t>(needed));
+    }
+    std::vector<char> heapBuf(static_cast<size_t>(needed) + 1);
+    vsnprintf(heapBuf.data(), heapBuf.size(), format, argsCopy);
+    va_end(argsCopy);
+    return write(reinterpret_cast<const uint8_t *>(heapBuf.data()), static_cast<size_t>(needed));
+  }
 };
