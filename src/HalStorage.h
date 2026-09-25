@@ -28,6 +28,8 @@ public:
   HalStorage();
   bool begin();
   bool ready() const;
+  // Fork-only HAL addition; see HalStorage.cpp for details.
+  bool getSpace(uint64_t &totalBytes, uint64_t &freeBytes);
   void prepareForDeepSleep() {};
   bool beginUsbDrive();
   bool disconnectUsbDriveHost();

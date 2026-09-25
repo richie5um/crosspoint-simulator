@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -88,6 +89,23 @@ bool HalStorage::begin() {
   return ::mkdir(root.c_str(), 0777) == 0 || errno == EEXIST;
 }
 bool HalStorage::ready() const { return true; }
+
+bool HalStorage::getSpace(uint64_t &totalBytes, uint64_t &freeBytes) {
+  // Fork-only HAL addition (crosspoint-reader firmware forks that add
+  // HalStorage::getSpace); mirrors host disk space under the sandboxed
+  // storage root rather than a fixed fake number, since it's cheap and more
+  // useful for testing an SD-capacity UI than a no-op.
+  totalBytes = 0;
+  freeBytes = 0;
+  struct statvfs stat;
+  if (::statvfs(configuredStorageRoot().c_str(), &stat) != 0) {
+    return false;
+  }
+  totalBytes = static_cast<uint64_t>(stat.f_blocks) * stat.f_frsize;
+  freeBytes = static_cast<uint64_t>(stat.f_bavail) * stat.f_frsize;
+  return totalBytes > 0;
+}
+
 bool HalStorage::beginUsbDrive() { return false; }
 bool HalStorage::disconnectUsbDriveHost() { return false; }
 void HalStorage::endUsbDrive() {}
